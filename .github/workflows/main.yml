@@ -2,7 +2,7 @@ name: vprofile actions
 on: workflow_dispatch
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
-  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY  }}
+  ECR_REPOSITORY: vprofileapp
   EKS_CLUSTER: ${{ secrets.EKS_CLUSTER }}
 
 permissions:
@@ -78,7 +78,7 @@ jobs:
           aws_region: ${{ secrets.AWS_REGION }}
           registry: ${{ secrets.REGISTRY }}
           repository: ${{ secrets.ECR_REPOSITORY }}
-          tags: ${{ github.run_number }}
+          tags: latest,${{ github.run_number }}
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
