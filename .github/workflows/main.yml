@@ -59,7 +59,7 @@ jobs:
           SONAR_HOST_URL: ${{ secrets.SONAR_URL }}
         continue-on-error: true
 
-  BUILD_AND_PUBLISH:
+  Build_and_Publish:
     needs: Testing
     runs-on: ubuntu-latest
     steps:
@@ -71,14 +71,47 @@ jobs:
         with: 
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/${{ secrets.AWS_ROLE }}
           aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Get Kube config file
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
+      
+      - name: Print Kube config file
+        run: |
+          cat ~/.kube/config
 
       - name: Build and push Docker image to ECR
         uses: appleboy/docker-ecr-action@master
         with:
           aws_region: ${{ secrets.AWS_REGION }}
-          registry: ${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com #${{ secrets.REGISTRY }}
+          registry: ${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com
           repo: ${{ env.ECR_REPOSITORY }}
           tags: latest,${{ github.run_number }}
           daemon_off: false
           dockerfile: ./Dockerfile
           context: ./
+
+  Deploy_to_Kubernetes:
+    needs: BUILD_AND_PUBLISH
+    runs-on: ubuntu-latest
+    steps:
+      - name: Code checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate in the AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with: 
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/${{ secrets.AWS_ROLE }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Get Kube config file
+        run: |
+          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
+
+      - name: Login to ECR
+        run: |
+          kubectl create secret docker-registry regcred --docker-server=https://${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com --docker-username=AWS --docker-password=`aws ecr get-login-password`
+      
+      - name: Deploy Helm
+        run: |
+          helm upgrade --install vprofileapp ./helm/vprofilecharts/ --set image.repository=${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com/${{ env.ECR_REPOSITORY }} --set image.tag=latest
