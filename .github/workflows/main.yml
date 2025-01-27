@@ -99,10 +99,15 @@ jobs:
         run: |
           aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
 
-      - name: Login to ECR
+      - name: Create Docker Registry Secret to ECR login
         run: |
-          kubectl create secret docker-registry regcred --docker-server=https://${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com --docker-username=AWS --docker-password=`aws ecr get-login-password`
+          kubectl create secret docker-registry regcred \
+            --docker-server=https://${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com \
+            --docker-username=AWS \
+            --docker-password=$(aws ecr get-login-password) || true
       
       - name: Deploy Helm
         run: |
-          helm upgrade --install vprofileapp ./helm/vprofilecharts/ --set image.repository=${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com/${{ env.ECR_REPOSITORY }} --set image.tag=latest
+          helm upgrade --install vprofileapp ./helm/vprofilecharts/ \
+            --set image.repository=${{ secrets.AWS_ACCOUNT }}.dkr.ecr.us-east-1.amazonaws.com/${{ env.ECR_REPOSITORY }} 
+            --set image.tag=latest
