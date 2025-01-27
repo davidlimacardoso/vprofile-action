@@ -3,7 +3,6 @@ on: workflow_dispatch
 env:
   AWS_REGION: ${{ secrets.AWS_REGION }}
   ECR_REPOSITORY: vprofileapp
-  EKS_CLUSTER: ${{ secrets.EKS_CLUSTER }}
 
 permissions:
   id-token: write
@@ -71,14 +70,6 @@ jobs:
         with: 
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT }}:role/${{ secrets.AWS_ROLE }}
           aws-region: ${{ secrets.AWS_REGION }}
-      
-      - name: Get Kube config file
-        run: |
-          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
-      
-      - name: Print Kube config file
-        run: |
-          cat ~/.kube/config
 
       - name: Build and push Docker image to ECR
         uses: appleboy/docker-ecr-action@master
@@ -92,7 +83,7 @@ jobs:
           context: ./
 
   Deploy_to_Kubernetes:
-    needs: BUILD_AND_PUBLISH
+    needs: Build_and_Publish
     runs-on: ubuntu-latest
     steps:
       - name: Code checkout
@@ -106,7 +97,7 @@ jobs:
       
       - name: Get Kube config file
         run: |
-          aws eks update-kubeconfig --name ${{ env.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
+          aws eks update-kubeconfig --name ${{ secrets.EKS_CLUSTER }} --region ${{ secrets.AWS_REGION }}
 
       - name: Login to ECR
         run: |
